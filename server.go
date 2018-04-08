@@ -9,24 +9,25 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
-
-var upgrader = websocket.Upgrader{} // use default options
-
-func echo(w http.ResponseWriter, r *http.Request) {
+func echo(upgrader * websocket.Upgrader, w http.ResponseWriter, r *http.Request) {
+	// Upgrade the HTTP method into a Websockt Connection
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
 	}
 	defer c.Close()
+
+	// Handle the websocket traffic if the upgrade was successful
 	for {
+		// Read in new messages
 		mt, message, err := c.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
 		}
 		log.Printf("recv: %s", message)
+		// Write out a response
 		err = c.WriteMessage(mt, message)
 		if err != nil {
 			log.Println("write:", err)
@@ -40,10 +41,21 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// CLI flags:
+	addr := flag.String("addr", "localhost:8080", "http service address")
+
+	// Parse the CLI flags
 	flag.Parse()
 	log.SetFlags(0)
-	http.HandleFunc("/echo", echo)
+
+	upgrader := &websocket.Upgrader{} // use default options
+
+	// Create the HTTP handlers
+	http.HandleFunc("/echo", func (w http.ResponseWriter, r *http.Request){
+		echo(upgrader, w, r);
+	})
 	http.HandleFunc("/", home)
+	// Bootup the server
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
